@@ -637,7 +637,7 @@ select:focus {
     padding: 10px 14px;
     border-radius: 12px;
     top: auto;
-    bottom: 50px;
+    bottom: 30px;
     right: 18px;
     transform: none;
 }
@@ -652,13 +652,11 @@ select:focus {
 .legend-layer {
     display: flex;
     flex-direction: column;
-    min-width: 80px;
-    padding-right: 12px;
-    border-right: 1px solid rgba(229, 231, 235, .5);
+    min-width: 70px;
+    padding-right: 10px;
 }
 
 .legend-layer:last-child {
-    border-right: none;
     padding-right: 0;
 }
 
@@ -771,17 +769,16 @@ select:focus {
     color: #0f172a;
 }
 
+/* Simple legend item - no border/background */
 .legend-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 10px;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, .7);
-    border: 1px solid rgba(229, 231, 235, .8);
-    margin-bottom: 8px;
-    transition: all 0.2s ease;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0;
 }
 
 /* Dynamic legend sections */
@@ -1039,16 +1036,16 @@ select:focus {
 
 .coords {
     position: absolute;
-    right: 18px;
-    bottom: 18px;
-    background: rgba(255, 255, 255, .80);
-    backdrop-filter: blur(14px);
+    left: 90px;
+    bottom: 8px;
+    background: rgba(255, 255, 255, .90);
+    backdrop-filter: blur(10px);
     border: 1px solid rgba(229, 231, 235, .9);
-    border-radius: 14px;
-    padding: 10px 12px;
-    box-shadow: var(--shadow2);
+    border-radius: 8px;
+    padding: 4px 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--muted);
     z-index: 700;
 }

@@ -118,9 +118,9 @@ const translations = {
         // Legend
         legend: 'Legenda',
         zone: 'Zona',
-        safe: 'Aman',
-        low: 'Rendah',
-        medium: 'Sedang',
+        safe: 'Zona Hijau',
+        low: 'Zona Kuning',
+        medium: 'Zona Merah',
         type: 'Tipe',
         government: 'Pemerintahan',
         education: 'Pendidikan',
@@ -199,9 +199,9 @@ const translations = {
         // Legend
         legend: 'Legend',
         zone: 'Zone',
-        safe: 'Safe',
-        low: 'Low',
-        medium: 'Medium',
+        safe: 'Green Zone',
+        low: 'Yellow Zone',
+        medium: 'Red Zone',
         type: 'Type',
         government: 'Government',
         education: 'Education',
@@ -286,19 +286,19 @@ let wisataDataAll = [];
 const SHELTER_ZONES = {
     merah: {
         color: '#dc2626',
-        label: 'Zona Sedang',
+        label: 'Zona Merah',
         distance: '1-1.5 km dari pantai',
         desc: 'Daerah sedang terkena tsunami (mungkin tergenang)'
     },
     kuning: {
         color: '#eab308',
-        label: 'Zona Rendah',
+        label: 'Zona Kuning',
         distance: '1.5-3 km dari pantai',
         desc: 'Daerah rendah potensi tsunami'
     },
     hijau: {
         color: '#22c55e',
-        label: 'Zona Aman',
+        label: 'Zona Hijau',
         distance: '3-5 km dari pantai',
         desc: 'Daerah tinggi dan jauh dari pantai (AMAN)'
     }
@@ -321,11 +321,11 @@ function getZoneFromFcode(fcode) {
     return 'hijau'; // default
 }
 
-// Tipe fasilitas shelter
+// Tipe fasilitas shelter - menggunakan HTML Font Awesome untuk kompatibilitas browser
 const SHELTER_TYPES = {
-    pemerintahan: { icon: '🏛️', label: 'Pemerintahan' },
-    pendidikan: { icon: '🏫', label: 'Pendidikan' },
-    rumahsakit: { icon: '🏥', label: 'Rumah Sakit' }
+    pemerintahan: { icon: '<i class="fa-solid fa-landmark"></i>', label: 'Pemerintahan', emoji: '🏛️' },
+    pendidikan: { icon: '<i class="fa-solid fa-school"></i>', label: 'Pendidikan', emoji: '🏫' },
+    rumahsakit: { icon: '<i class="fa-solid fa-hospital"></i>', label: 'Rumah Sakit', emoji: '🏥' }
 };
 
 /* ===========================
@@ -343,7 +343,7 @@ const state = {
 /* ===========================
    MAP INIT + BASEMAPS
 =========================== */
-const map = L.map('map', { zoomControl: true }).setView([-8.52, 115.05], 11);
+const map = L.map('map', { zoomControl: true }).setView([-8.41, 115.19], 10);
 
 // Add scale control
 L.control.scale({
@@ -373,15 +373,14 @@ function switchBasemap(name) {
     }
 }
 
-// Layers
-const krbLayer = L.layerGroup().addTo(map); // KRB Tsunami layer (di bawah)
-const shelterMerahLayer = L.layerGroup().addTo(map);
-const shelterKuningLayer = L.layerGroup().addTo(map);
-const shelterHijauLayer = L.layerGroup().addTo(map);
-const wiLayer = L.layerGroup().addTo(map);
-const labelLayer = L.layerGroup().addTo(map);
-const routeLayer = L.layerGroup().addTo(map);
-const bufferLayer = L.layerGroup().addTo(map);
+// Layers - hanya layer yang checkbox-nya checked by default yang ditambahkan ke map
+const krbLayer = L.layerGroup().addTo(map); // KRB Tsunami layer - checked by default
+const shelterMerahLayer = L.layerGroup(); // TPD layers - unchecked by default
+const shelterKuningLayer = L.layerGroup();
+const shelterHijauLayer = L.layerGroup();
+const wiLayer = L.layerGroup(); // Wisata - unchecked by default
+const routeLayer = L.layerGroup().addTo(map); // Route always on map
+const bufferLayer = L.layerGroup(); // Buffer - unchecked by default
 
 /* ===========================
    KRB TSUNAMI STYLING
@@ -512,7 +511,10 @@ const wisataIcon = L.divIcon({
       font-weight:900;
       box-shadow:0 4px 15px rgba(245,158,11,0.3);
       text-align:center;
-    ">🏖️ WISATA</div>`,
+      display:flex;
+      align-items:center;
+      gap:6px;
+    "><i class="fa-solid fa-umbrella-beach"></i> WISATA</div>`,
     iconSize: [92, 30],
     iconAnchor: [46, 15]
 });
@@ -663,7 +665,6 @@ function renderShelters() {
     shelterMerahLayer.clearLayers();
     shelterKuningLayer.clearLayers();
     shelterHijauLayer.clearLayers();
-    labelLayer.clearLayers();
 
     const sel = document.getElementById('selectEvakuasi');
     sel.innerHTML = `<option value="">-- pilih TPD --</option>`;
@@ -698,16 +699,6 @@ function renderShelters() {
         if (s.zone === 'merah') shelterMerahLayer.addLayer(mk);
         else if (s.zone === 'kuning') shelterKuningLayer.addLayer(mk);
         else shelterHijauLayer.addLayer(mk);
-
-        // Add label
-        const lb = L.marker([s.lat, s.lon], {
-            icon: L.divIcon({
-                className: "",
-                html: `<div style="transform:translateY(22px); background:rgba(255,255,255,.95); padding:3px 6px; border-radius:999px; border:1px solid ${zoneConfig.color}; box-shadow:0 10px 22px rgba(2,6,23,.10); font-weight:700; font-size:10px; color:#0f172a; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis;">${s.nama}</div>`
-            }),
-            interactive: false
-        });
-        labelLayer.addLayer(lb);
 
         // Add to dropdown (limit to first 100 for performance)
         if (sel.options.length < 101) {
@@ -814,8 +805,52 @@ function getStartFromUI() {
     return null;
 }
 
-function setStart(start) {
+// Reverse geocoding using Nominatim (OpenStreetMap)
+async function reverseGeocode(lat, lon) {
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
+            headers: { 'Accept-Language': 'id' }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data && data.address) {
+            // Build a short, readable name
+            const addr = data.address;
+            const parts = [];
+            if (addr.tourism) parts.push(addr.tourism);
+            else if (addr.amenity) parts.push(addr.amenity);
+            else if (addr.building) parts.push(addr.building);
+            else if (addr.road) parts.push(addr.road);
+
+            if (addr.village) parts.push(addr.village);
+            else if (addr.suburb) parts.push(addr.suburb);
+            else if (addr.neighbourhood) parts.push(addr.neighbourhood);
+
+            if (addr.city) parts.push(addr.city);
+            else if (addr.town) parts.push(addr.town);
+            else if (addr.county) parts.push(addr.county);
+
+            return parts.length > 0 ? parts.slice(0, 3).join(', ') : data.display_name?.split(',').slice(0, 3).join(',');
+        }
+        return null;
+    } catch (err) {
+        console.warn('Reverse geocoding failed:', err);
+        return null;
+    }
+}
+
+async function setStart(start) {
     state.start = start;
+
+    // If the name is generic (like "Koordinat Manual" or "Lokasi Anda"), try reverse geocoding
+    if (start.name === "Koordinat Manual" || start.name === "Lokasi Anda" || start.name === "Lokasi Anda (GPS)") {
+        const geoName = await reverseGeocode(start.lat, start.lon);
+        if (geoName) {
+            start.name = geoName;
+            state.start.name = geoName;
+        }
+    }
+
     toast("success", "Start diset", `${start.name} (${start.lat.toFixed(5)}, ${start.lon.toFixed(5)})`);
 }
 
@@ -1015,32 +1050,31 @@ async function computeRoute({ autoNearest = false } = {}) {
         state.routeGeo = r.geojson;
         state.routeMeta = { distance_m: r.distance_m, duration_s: r.duration_s, steps: r.steps, profile: prof, color };
 
+        // Get elevation text for TPD
+        const elevText = typeof goal.elevasi === 'number' ? `${goal.elevasi.toFixed(1)}m` : 'N/A';
+
         setInfo(
             start.name,
             goal.nama,
             fmtKm(r.distance_m),
             fmtMin(r.duration_s),
             `${zoneConfig.label} (${zoneConfig.distance})`,
+            elevText,
             htmlSteps(r.steps)
         );
-
-        // stat jarak terjauh dari semua wisata ke goal (optional)
-        const maxDist = wisataDataAll.reduce((mx, w) => {
-            const d = map.distance([w.lat, w.lon], [goal.lat, goal.lon]) / 1000;
-            return Math.max(mx, d);
-        }, 0);
-        document.getElementById('statDistMax').textContent = maxDist.toFixed(2);
 
         map.fitBounds(line.getBounds(), { padding: [50, 50] });
         toast("success", "Rute berhasil", `${fmtKm(r.distance_m)} • ${fmtMin(r.duration_s)} (${prof === "car" ? "driving" : "walking"})`);
     } catch (err) {
         const fb = drawFallbackLine(start, goal);
+        const elevText = typeof goal.elevasi === 'number' ? `${goal.elevasi.toFixed(1)}m` : 'N/A';
         setInfo(
             start.name,
             goal.nama,
             fmtKm(fb.distM),
             fmtMin(fb.durS),
             `${zoneConfig.label} (${zoneConfig.distance})`,
+            elevText,
             `<div class="step"><b>Fallback</b> – OSRM tidak tersedia. Menampilkan garis lurus (estimasi).</div>`
         );
         map.fitBounds(fb.line.getBounds(), { padding: [50, 50] });
@@ -1190,8 +1224,8 @@ function syncLayers() {
     document.getElementById('chkShelterKuning').checked ? map.addLayer(shelterKuningLayer) : map.removeLayer(shelterKuningLayer);
     document.getElementById('chkShelterHijau').checked ? map.addLayer(shelterHijauLayer) : map.removeLayer(shelterHijauLayer);
     document.getElementById('chkWisata').checked ? map.addLayer(wiLayer) : map.removeLayer(wiLayer);
-    document.getElementById('chkLabels').checked ? map.addLayer(labelLayer) : map.removeLayer(labelLayer);
     document.getElementById('chkBuffer').checked ? map.addLayer(bufferLayer) : map.removeLayer(bufferLayer);
+
     // Route layer is always added when a route is computed, no checkbox needed
 
     // Sync legend with active layers
@@ -1346,7 +1380,25 @@ document.getElementById('selectWisata').addEventListener('change', (e) => {
         document.getElementById('inputLat').value = w.lat.toFixed(6);
         document.getElementById('inputLon').value = w.lon.toFixed(6);
         setStart({ name: w.nama, lat: w.lat, lon: w.lon });
-        map.setView([w.lat, w.lon], 13);
+        map.setView([w.lat, w.lon], 14);
+
+        // Activate wisata layer and show only selected wisata
+        document.getElementById('chkWisata').checked = true;
+
+        // Clear wisata layer and add only selected wisata marker
+        wiLayer.clearLayers();
+        const mk = L.marker([w.lat, w.lon], { icon: wisataIcon })
+            .bindPopup(`<div style="font-family:Poppins"><b>${w.nama}</b><br>
+                <span style="color:#64748b;font-weight:700">Koordinat:</span> ${w.lat.toFixed(6)}, ${w.lon.toFixed(6)}</div>`)
+            .openPopup();
+        wiLayer.addLayer(mk);
+
+        syncLayers();
+        toast('info', 'Wisata dipilih', w.nama);
+    } else if (!id) {
+        // If cleared, show all wisata
+        renderWisata();
+        syncLayers();
     }
 });
 
@@ -1383,8 +1435,8 @@ document.getElementById('btnExportCSV').addEventListener('click', exportCSV);
 document.getElementById('btnExportGeoJSON').addEventListener('click', exportGeoJSON);
 document.getElementById('btnPrint').addEventListener('click', () => window.print());
 
-// Layer checkboxes (removed chkRoute)
-['chkKrb', 'chkShelterMerah', 'chkShelterKuning', 'chkShelterHijau', 'chkWisata', 'chkLabels', 'chkBuffer'].forEach(id => {
+// Layer checkboxes
+['chkKrb', 'chkShelterMerah', 'chkShelterKuning', 'chkShelterHijau', 'chkWisata', 'chkBuffer'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
         el.addEventListener('change', () => {
