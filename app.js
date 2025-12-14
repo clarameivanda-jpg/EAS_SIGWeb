@@ -517,18 +517,23 @@ const wisataIcon = L.divIcon({
     iconAnchor: [46, 15]
 });
 
-function setInfo(from, to, dist, time, zone, stepsHtml = "") {
+function setInfo(from, to, dist, time, zone, elev, stepsHtml = "") {
     document.getElementById('infoFrom').textContent = from || "-";
     document.getElementById('infoTo').textContent = to || "-";
     document.getElementById('infoDist').textContent = dist || "-";
     document.getElementById('infoTime').textContent = time || "-";
-    document.getElementById('infoElev').textContent = zone || "-";
+    document.getElementById('infoZone').textContent = zone || "-";
+    document.getElementById('infoElev').textContent = elev || "-";
     document.getElementById('steps').innerHTML = stepsHtml || "";
 
-    // Show Info Rute panel when route info is set
+    // Show/hide Info Rute panel
     const infoRute = document.getElementById('infoRute');
-    if (infoRute && from && to) {
-        infoRute.style.display = 'block';
+    if (infoRute) {
+        if (from && from !== "-" && to && to !== "-") {
+            infoRute.style.display = 'block';
+        } else {
+            infoRute.style.display = 'none';
+        }
     }
 }
 
@@ -882,8 +887,7 @@ function clearRoute() {
     bufferLayer.clearLayers();
     state.routeGeo = null;
     state.routeMeta = null;
-    setInfo("-", "-", "-", "-", "-", "");
-    document.getElementById('statDistMax').textContent = "0";
+    setInfo("-", "-", "-", "-", "-", "-", "");
 }
 
 function drawBufferIfNeeded(start) {
